@@ -301,13 +301,8 @@ void loop() {
 void startRecording() {
   Serial.println("startRecording");
   Serial.print("File number: "); Serial.println(countFile, DEC);
-  
-  String tmp = "RECORD";
-  tmp.concat(countFile);
-  tmp.concat(".RAW");
-  char fileName[tmp.length()+1];
-  tmp.toCharArray(fileName, sizeof(fileName));
 
+  char fileName[] = "RECORD0.RAW";
   Serial.print("File name: "); Serial.println(fileName);
 
   if (SD.exists(fileName)) {
@@ -320,12 +315,8 @@ void startRecording() {
     mode = RECORD;
   }
 
-// can only hold 1 sound
-//  if (countFile == MAX_SOUND - 1) {
-//    countFile = 0;
-//  } else {
-//    countFile++;
-//  }
+// can only hold 1 sound from itself
+  countFile = 1;
   
   startRecordTime = millis();
 }
