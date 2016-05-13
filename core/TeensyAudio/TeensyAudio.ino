@@ -56,9 +56,9 @@ AudioConnection          patchCord10(mixer2, 0, i2s1, 1);
 
 // Bounce objects to easily and reliably read the buttons
 //Bounce buttonRecord = Bounce(0, 8);
-Bounce signalClose =   Bounce(1, 8);  // 8 = 8 ms debounce time
-Bounce signalOpen =   Bounce(2, 8);
-Bounce signalShake = Bounce(3, 8);
+Bounce signalClose =   Bounce(2, 8);  // 8 = 8 ms debounce time
+Bounce signalOpen =   Bounce(3, 8);
+Bounce signalShake = Bounce(4, 8);
 
 bool isClosed = true;
 bool isShaken = false;
@@ -100,9 +100,9 @@ const float SOUND_THR = 3.0;  // threshold for sound detection
 void setup() {
   // Configure the signal pins
 //  pinMode(0, INPUT_PULLUP);
-  pinMode(1, INPUT_PULLUP);
   pinMode(2, INPUT_PULLUP);
   pinMode(3, INPUT_PULLUP);
+  pinMode(4, INPUT_PULLUP);
 
   // Audio connections require memory, and the record queue
   // uses this memory to buffer incoming audio.
