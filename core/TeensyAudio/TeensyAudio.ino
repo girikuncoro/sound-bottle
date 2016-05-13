@@ -154,8 +154,8 @@ void setup() {
   if (SD.exists("RECORD1.RAW")) {
     SD.remove("RECORD1.RAW");
   }
-  if (SD.exists("RECORD1.RAW")) {
-    SD.remove("RECORD1.RAW");
+  if (SD.exists("RECORD2.RAW")) {
+    SD.remove("RECORD2.RAW");
   }
 
   // wait for Photon to be ready
