@@ -55,10 +55,12 @@ AudioConnection          patchCord10(mixer2, 0, i2s1, 1);
 
 
 // Bounce objects to easily and reliably read the buttons
-//Bounce buttonRecord = Bounce(0, 8);
 Bounce signalClose =   Bounce(2, 8);  // 8 = 8 ms debounce time
 Bounce signalOpen =   Bounce(3, 8);
 Bounce signalShake = Bounce(4, 8);
+
+Bounce signalPut = Bounce(20, 8);  // trigger for put FTP
+Bounce signalGet = Bounce(21, 8);  // trigger for get FTP
 
 bool isClosed = true;
 bool isShaken = false;
@@ -76,6 +78,7 @@ int mode = STOP;
 
 // Constants for recording
 File frec;  // the file where data is recorded
+File fpour; // the file to put/get FTP
 int countFile = 0;  // count total files
 const int SOUND_TO_RECORD = 3;
 long startRecordTime, elapsedRecordTime;
@@ -99,10 +102,12 @@ const float SOUND_THR = 3.0;  // threshold for sound detection
 
 void setup() {
   // Configure the signal pins
-//  pinMode(0, INPUT_PULLUP);
   pinMode(2, INPUT_PULLUP);
   pinMode(3, INPUT_PULLUP);
   pinMode(4, INPUT_PULLUP);
+
+  pinMode(20, INPUT_PULLUP);
+  pinMode(21, INPUT_PULLUP);
 
   // Audio connections require memory, and the record queue
   // uses this memory to buffer incoming audio.
@@ -111,7 +116,7 @@ void setup() {
   // Enable the audio shield, select input, and enable output
   sgtl5000_1.enable();
   sgtl5000_1.inputSelect(myInput);
-  sgtl5000_1.volume(0.5);
+  sgtl5000_1.volume(1.0);
 
   // Initialize the SD card
   SPI.setMOSI(7);
@@ -129,6 +134,10 @@ void setup() {
   mixer2.gain(0, 0.5);
   mixer2.gain(1, 0.5);
 
+  // serial 1 to communicate with WiFly in 19200 rate
+  Serial1.begin(19200);
+  Serial1.write("$$$");  // always puts WiFly on CMD mode
+
   // wait for Photon to be ready
   delay(1000);
 }
@@ -139,6 +148,8 @@ void loop() {
   signalClose.update();
   signalOpen.update();
   signalShake.update();
+  signalPut.update();
+  signalGet.update();
 
   // wait till the first open
   while (waitToOpen) {
@@ -198,6 +209,32 @@ void loop() {
 
   // when using a microphone, adjust gain
   if (myInput == AUDIO_INPUT_MIC) adjustMicLevel();
+
+  if (signalPut.fallingEdge()) {
+    Serial.println("Pour cmd detected, should PUT file");
+
+    // gradually decrease volume
+    sgtl5000_1.volume(0.6);
+    delay(500);
+    sgtl5000_1.volume(0.3);
+    delay(500);
+    sgtl5000_1.volume(0.0);
+
+    // put the first file to FTP
+    if (countFile == 0) {
+      Serial.println("No files recorded yet, please record first");
+    } else {
+      putFTP();  // put first file to FTP
+      // TODO: something with Photon
+
+      // remove all files
+      // should be reset
+    }
+  }
+
+  if (signalGet.fallingEdge()) {
+    Serial.println("Pour cmd detected, should GET file");
+  }
 }
 
 void startRecording() {
@@ -451,4 +488,38 @@ void detectSound() {
   }
 }
 
+void putFTP() {
+  char inBuf[512];
+  byte outBuf[512];
+  
+  Serial.println("Putting RECORD0.RAW to FTP...");
+  Serial1.println("ftp put bottle.raw");  // file name is bottle.raw
 
+  // waiting for "FTP connecting" ack from server
+  while(!Serial1.available());
+  int len = Serial1.readBytes(dataBuf, 512);
+
+  for(int i = 0; i < len; i++) {
+    Serial.print(inBuf[i]);
+  }
+  memset(inBuf, 0, sizeof(dataBuf));
+
+  Serial.println("Try opening RECORD0.RAW...");
+  fpour = SD.open("RECORD0.RAW", FILE_READ);
+  if (!myFile) {
+    Serial.println("Failed to open file");
+    while(1);
+  }
+
+  while(fpour.available()) {
+    len = fpour.readBytes(outBuf, 512);
+    Serial1.write(outBuf, len);
+    memset(outBuf, 0, sizeof(outBuf));
+  }
+
+  Serial.println(" "); Serial.println("Putting file is done...");
+  Serial.println("Waiting to timeout");
+  while(!Serial1.available()) {};
+  Serial.println("FTP Done..");
+  fpour.close();  
+}
