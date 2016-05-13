@@ -82,7 +82,7 @@ File fpour; // the file to put/get FTP
 int countFile = 0;  // count total files  ################# for debugging purpose changed to 1
 const int MAX_SOUND = 3;
 long startRecordTime, elapsedRecordTime;
-int RECORD_TIME = 400;  // 1 sec for each record
+int RECORD_TIME = 600;  // 600 msec for each record
 
 // Constants for playing
 int countBeat = 1;
@@ -97,7 +97,7 @@ const int LAST_PATTERN = 2;
 // Constants for sound detection from the red mic
 const int sampleWindow = 50; // Sample window width in mS (50 mS = 20Hz)
 unsigned int sample;
-const float SOUND_THR = 3.0;  // threshold for sound detection
+const float SOUND_THR = 3.1;  // threshold for sound detection
 
 
 void setup() {
@@ -320,11 +320,12 @@ void startRecording() {
     mode = RECORD;
   }
 
-  if (countFile == MAX_SOUND - 1) {
-    countFile = 0;
-  } else {
-    countFile++;
-  }
+// can only hold 1 sound
+//  if (countFile == MAX_SOUND - 1) {
+//    countFile = 0;
+//  } else {
+//    countFile++;
+//  }
   
   startRecordTime = millis();
 }
@@ -482,10 +483,13 @@ void detectSound() {
    }
    peakToPeak = signalMax - signalMin;  // max - min = peak-peak amplitude
    double volts = (peakToPeak * 3.3) / 1024;  // convert to volts
+//   double volts = (peakToPeak * 5) / 1024;  // convert to volts
 
   // start recording when sound reach threshold
+//  Serial.println(volts);
   if (volts > SOUND_THR) {
     startRecording();
+    delay(500);
   }
 }
 
