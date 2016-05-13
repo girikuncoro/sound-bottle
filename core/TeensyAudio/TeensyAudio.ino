@@ -79,10 +79,10 @@ int mode = STOP;
 // Constants for recording
 File frec;  // the file where data is recorded
 File fpour; // the file to put/get FTP
-int countFile = 0;  // count total files
+int countFile = 1;  // count total files  ################# for debugging purpose changed to 1
 const int SOUND_TO_RECORD = 3;
 long startRecordTime, elapsedRecordTime;
-int RECORD_TIME = 1000;  // 1 sec for each record
+int RECORD_TIME = 400;  // 1 sec for each record
 
 // Constants for playing
 int countBeat = 1;
@@ -137,8 +137,18 @@ void setup() {
   // serial 1 to communicate with WiFly in 19200 rate
   Serial1.begin(19200);
   Serial1.write("$$$");  // always puts WiFly on CMD mode
+  delay(3000);
+  Serial1.println("get ip");
+  delay(1000);
+  Serial.println("Teensy connected with:");
+
+  while(Serial1.available() > 0) {
+    char data = Serial1.read();
+    Serial.print(data);
+  }
 
   // wait for Photon to be ready
+  Serial.println(""); Serial.println("SoundBottle Ready");
   delay(1000);
 }
 
@@ -219,17 +229,28 @@ void loop() {
     sgtl5000_1.volume(0.3);
     delay(500);
     sgtl5000_1.volume(0.0);
+    if (mode == RECORD) stopRecording();
+    if (mode == PLAY) stopPlaying();
 
     // put the first file to FTP
     if (countFile == 0) {
       Serial.println("No files recorded yet, please record first");
     } else {
       putFTP();  // put first file to FTP
-      // TODO: something with Photon
 
-      // remove all files
-      // should be reset
+      // reset the mode if bottle has no more sound
+      countFile--;
+      if (countFile == 0) {
+        recordReady = true;
+        waitToOpen = true;
+        Serial.println("Bottle is empty, next open will be record");
+      }
+      
+      // TODO: something with Photon, tell the other bottle that sound is ready on FTP
     }
+
+    // bring back volume
+    sgtl5000_1.volume(1.0);
   }
 
   if (signalGet.fallingEdge()) {
@@ -497,16 +518,16 @@ void putFTP() {
 
   // waiting for "FTP connecting" ack from server
   while(!Serial1.available());
-  int len = Serial1.readBytes(dataBuf, 512);
+  int len = Serial1.readBytes(inBuf, 512);
 
   for(int i = 0; i < len; i++) {
     Serial.print(inBuf[i]);
   }
-  memset(inBuf, 0, sizeof(dataBuf));
+  memset(inBuf, 0, sizeof(inBuf));
 
-  Serial.println("Try opening RECORD0.RAW...");
+  Serial.println("Uploading RECORD0.RAW...");
   fpour = SD.open("RECORD0.RAW", FILE_READ);
-  if (!myFile) {
+  if (!fpour) {
     Serial.println("Failed to open file");
     while(1);
   }
@@ -522,4 +543,10 @@ void putFTP() {
   while(!Serial1.available()) {};
   Serial.println("FTP Done..");
   fpour.close();  
+
+  // remove the file  ########################### commented for debugging purpose
+//  if (SD.exists("RECORD0.RAW")) {
+//    SD.remove("RECORD0.RAW");
+//  }
+  
 }
