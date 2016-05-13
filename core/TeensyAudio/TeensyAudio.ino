@@ -147,6 +147,17 @@ void setup() {
     Serial.print(data);
   }
 
+  // clean 3 recorded sound
+  if (SD.exists("RECORD0.RAW")) {
+    SD.remove("RECORD0.RAW");
+  }
+  if (SD.exists("RECORD1.RAW")) {
+    SD.remove("RECORD1.RAW");
+  }
+  if (SD.exists("RECORD1.RAW")) {
+    SD.remove("RECORD1.RAW");
+  }
+
   // wait for Photon to be ready
   Serial.println(""); Serial.println("SoundBottle Ready");
   delay(1000);
@@ -259,14 +270,28 @@ void loop() {
     if (countFile == MAX_SOUND-1) {
       Serial.println("Can't get more file, exceeds MAX_SOUND");
     } else {
-      // decrease volume a bit
-      sgtl5000_1.volume(0.5);
+      // gradually decrease volume
+      sgtl5000_1.volume(0.6);
+      delay(500);
+      sgtl5000_1.volume(0.3);
+      delay(500);
+      sgtl5000_1.volume(0.0);
+      if (mode == RECORD) stopRecording();
+      if (mode == PLAY) stopPlaying();
 
       countFile++;
       getFTP();  // get file and save it as the next countFile
 
-      // bring back volume
+      // wait to close and open again
+      while(!signalClose.fallingEdge());
+      Serial.println("Bottle is closed");
+      
+      while(!signalOpen.fallingEdge());
+      Serial.println("Bottle is opened");
+
+      // play again
       sgtl5000_1.volume(1.0);
+      startPlaying();
     }
 
     // TODO: should play with the new sound included
@@ -338,17 +363,10 @@ void stopRecording() {
 
 void startPlaying() {
   Serial.print("Count beat: "); Serial.println(countBeat, DEC);
-//  if (pattern == 1) {
-//    playSdWav1.play("KRNE1.wav");
-//    playSdWav3.play("KRNE6.wav");
-//    playSdWav4.play("KRNE8.wav");
-//  } else if (pattern == 2) {
-//    playSdWav1.play("KRNE1.wav");
-//    playSdWav3.play("KRNE6.wav");
-//  }
+
   if (pattern == 1) {
     playRaw1.play("RECORD0.RAW");
-    playSdWav1.play("KRNE6.wav");
+//    playSdWav1.play("KRNE6.wav");
   } else if (pattern == 2) {
     playRaw1.play("RECORD0.RAW");
     playRaw3.play("RECORD2.RAW");
@@ -358,10 +376,6 @@ void startPlaying() {
 
 void continuePlaying() {
   beatElapsed = millis() - beatStart;
-//  if (!playRaw1.isPlaying()) {
-//    playRaw1.stop();
-//    mode = 0;
-//  }
 
   if (beatElapsed > BPM) {
     countBeat++;
@@ -400,7 +414,7 @@ void stopPlaying() {
     playRaw1.stop();
     playRaw2.stop();
     playRaw3.stop();
-    playSdWav1.stop();
+//    playSdWav1.stop();
   }
   mode = STOP;
 }
@@ -420,10 +434,10 @@ void beat0() {
       delay(30);
     }
 
-    if (countBeat == 1) {
-      playSdWav1.play("KRNE6.wav");
-      delay(30);
-    }
+//    if (countBeat == 1) {
+//      playSdWav1.play("KRNE6.wav");
+//      delay(30);
+//    }
 }
 
 void beat3() {
@@ -441,55 +455,6 @@ void beat3() {
     playRaw3.play("RECORD2.RAW");
     delay(30);
   }
-}
-
-void beat1() {
-    if (countBeat == 1 || countBeat == 7 || countBeat == 13 || countBeat == 17 || countBeat == 23) {
-      playSdWav1.play("KRNE1.wav");
-      delay(10);
-    }
-
-    if (countBeat == 8 || countBeat == 24) {
-      playSdWav1.play("KRNE1.wav");
-      delay(10);
-    }
-    
-    if (countBeat == 9 || countBeat == 25) {
-      playSdWav2.play("KRNE2.wav");
-      delay(10);
-    }
-
-    if (countBeat == 1) {
-      playSdWav3.play("KRNE6.wav");
-      delay(10);
-    }
-
-    if (countBeat == 1 || countBeat == 4) {
-      playSdWav4.play("KRNE8.wav");
-      delay(10);
-    }
-}
-
-void beat2() {
-  if (countBeat == 1 || countBeat == 4 || countBeat == 7 || countBeat == 19 || countBeat == 21 || countBeat == 32) {
-    playSdWav1.play("KRNE1.wav");
-    delay(10);
-  }
-
-  if (countBeat == 9 || countBeat == 25) {
-    playSdWav2.play("KRNE2.wav");
-    delay(10);
-  }
-
-  if (countBeat == 1) {
-     playSdWav3.play("KRNE6.wav");
-     delay(10);
-   }
-
-//  if (countBeat == 1) {
-//    playSdWav4.play("KRNE8.wav");
-//    delay(10);
-//  }
 }
 
 void detectSound() {
