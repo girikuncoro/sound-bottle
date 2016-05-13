@@ -3,7 +3,7 @@
 
 void setup() {
   Serial.begin(9600);
-  Particle.subscribe("bottle2-pour", handler);
+  Particle.subscribe("bottle1-pour", handler);
 }
 
 void loop() {
