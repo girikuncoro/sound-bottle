@@ -256,7 +256,7 @@ void loop() {
   if (signalGet.fallingEdge()) {
     Serial.println("Pour cmd detected, should GET file");
 
-    if (countFile == MAX_SOUND) {
+    if (countFile == MAX_SOUND-1) {
       Serial.println("Can't get more file, exceeds MAX_SOUND");
     } else {
       // decrease volume a bit
@@ -265,14 +265,11 @@ void loop() {
       countFile++;
       getFTP();  // get file and save it as the next countFile
 
-      // increment count
-
       // bring back volume
       sgtl5000_1.volume(1.0);
     }
 
-
-    // should play with the new sound included
+    // TODO: should play with the new sound included
   }
 }
 
@@ -567,7 +564,8 @@ void putFTP() {
 }
 
 void getFTP() {
-  char dataBuf[512];
+  byte dataBuf[512];
+  char connectBuf[40];
   
   Serial.print("Creating new file on SD Card: RECORD"); Serial.print(countFile); Serial.println(".RAW");
   
@@ -593,10 +591,12 @@ void getFTP() {
 
   // waiting for "FTP connecting" ack from server
   while(!Serial1.available()) {};
-  for (int i = 0; i < 32; i++) {
-      char data = Serial1.read();  // get rid of "FTP connecting to 10.148.11.32"
-      Serial.print(data);
-      while(!Serial1.available()) {};
+  while(Serial1.available() > 0) {
+    Serial1.readBytes(connectBuf, 40);
+    for(int i = 0; i < 40; i++) {
+      Serial.print(connectBuf[i]);
+    }
+    break;
   }
 
   while(!Serial1.available()) {};
