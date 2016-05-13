@@ -79,8 +79,8 @@ int mode = STOP;
 // Constants for recording
 File frec;  // the file where data is recorded
 File fpour; // the file to put/get FTP
-int countFile = 1;  // count total files  ################# for debugging purpose changed to 1
-const int SOUND_TO_RECORD = 3;
+int countFile = 0;  // count total files  ################# for debugging purpose changed to 1
+const int MAX_SOUND = 3;
 long startRecordTime, elapsedRecordTime;
 int RECORD_TIME = 400;  // 1 sec for each record
 
@@ -255,6 +255,24 @@ void loop() {
 
   if (signalGet.fallingEdge()) {
     Serial.println("Pour cmd detected, should GET file");
+
+    if (countFile == MAX_SOUND) {
+      Serial.println("Can't get more file, exceeds MAX_SOUND");
+    } else {
+      // decrease volume a bit
+      sgtl5000_1.volume(0.5);
+
+      countFile++;
+      getFTP();  // get file and save it as the next countFile
+
+      // increment count
+
+      // bring back volume
+      sgtl5000_1.volume(1.0);
+    }
+
+
+    // should play with the new sound included
   }
 }
 
@@ -280,7 +298,7 @@ void startRecording() {
     mode = RECORD;
   }
 
-  if (countFile == SOUND_TO_RECORD - 1) {
+  if (countFile == MAX_SOUND - 1) {
     countFile = 0;
   } else {
     countFile++;
@@ -510,20 +528,17 @@ void detectSound() {
 }
 
 void putFTP() {
-  char inBuf[512];
   byte outBuf[512];
   
   Serial.println("Putting RECORD0.RAW to FTP...");
   Serial1.println("ftp put bottle.raw");  // file name is bottle.raw
 
   // waiting for "FTP connecting" ack from server
-  while(!Serial1.available());
-  int len = Serial1.readBytes(inBuf, 512);
-
-  for(int i = 0; i < len; i++) {
-    Serial.print(inBuf[i]);
+  while(!Serial1.available()) {};
+  while(Serial1.available() > 0) {
+    char data = Serial1.read();
+    Serial.print(data);
   }
-  memset(inBuf, 0, sizeof(inBuf));
 
   Serial.println("Uploading RECORD0.RAW...");
   fpour = SD.open("RECORD0.RAW", FILE_READ);
@@ -533,14 +548,14 @@ void putFTP() {
   }
 
   while(fpour.available()) {
-    len = fpour.readBytes(outBuf, 512);
+    int len = fpour.readBytes(outBuf, 512);
     Serial1.write(outBuf, len);
     memset(outBuf, 0, sizeof(outBuf));
   }
 
   Serial.println(" "); Serial.println("Putting file is done...");
   Serial.println("Waiting to timeout");
-  while(!Serial1.available()) {};
+  while(!Serial1.available());
   Serial.println("FTP Done..");
   fpour.close();  
 
@@ -549,4 +564,48 @@ void putFTP() {
 //    SD.remove("RECORD0.RAW");
 //  }
   
+}
+
+void getFTP() {
+  char dataBuf[512];
+  
+  Serial.print("Creating new file on SD Card: RECORD"); Serial.print(countFile); Serial.println(".RAW");
+  
+  String tmp = "RECORD";
+  tmp.concat(countFile);
+  tmp.concat(".RAW");
+  char fileName[tmp.length()+1];
+  tmp.toCharArray(fileName, sizeof(fileName));
+
+  Serial.print("File name: "); Serial.println(fileName);
+  if (SD.exists(fileName)) {
+    SD.remove(fileName);
+  }
+  fpour = SD.open(fileName, FILE_WRITE);
+
+  if (!fpour) {
+    Serial.println("Failed to open file");
+    while(1);
+  }
+
+  Serial.println("Getting BOTTLE.RAW from FTP...");
+  Serial1.println("ftp get bottle.raw");  // file name is bottle.raw
+
+  // waiting for "FTP connecting" ack from server
+  while(!Serial1.available()) {};
+  for (int i = 0; i < 32; i++) {
+      char data = Serial1.read();  // get rid of "FTP connecting to 10.148.11.32"
+      Serial.print(data);
+      while(!Serial1.available()) {};
+  }
+
+  while(!Serial1.available()) {};
+  while(Serial1.available() > 0) {
+    int len = Serial1.readBytes(dataBuf, 512);
+    fpour.write(dataBuf, len);
+  }
+
+  Serial.println("");
+  Serial.println("FTP Done..");
+  fpour.close();  
 }
