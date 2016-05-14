@@ -82,7 +82,7 @@ File fpour; // the file to put/get FTP
 int countFile = 0;  // count total files  ################# for debugging purpose changed to 1
 const int MAX_SOUND = 3;
 long startRecordTime, elapsedRecordTime;
-int RECORD_TIME = 600;  // 600 msec for each record
+int RECORD_TIME = 400;  // 1 sec for each record
 
 // Constants for playing
 int countBeat = 1;
@@ -97,7 +97,7 @@ const int LAST_PATTERN = 2;
 // Constants for sound detection from the red mic
 const int sampleWindow = 50; // Sample window width in mS (50 mS = 20Hz)
 unsigned int sample;
-const float SOUND_THR = 3.1;  // threshold for sound detection
+const float SOUND_THR = 3.29;  // threshold for sound detection
 
 
 void setup() {
@@ -147,17 +147,6 @@ void setup() {
     Serial.print(data);
   }
 
-  // clean 3 recorded sound
-  if (SD.exists("RECORD0.RAW")) {
-    SD.remove("RECORD0.RAW");
-  }
-  if (SD.exists("RECORD1.RAW")) {
-    SD.remove("RECORD1.RAW");
-  }
-  if (SD.exists("RECORD2.RAW")) {
-    SD.remove("RECORD2.RAW");
-  }
-
   // wait for Photon to be ready
   Serial.println(""); Serial.println("SoundBottle Ready");
   delay(1000);
@@ -182,9 +171,6 @@ void loop() {
     }
     signalOpen.update();
   }
-
-  // ready to record
-  if (mode == STOP && recordReady && !isClosed) detectSound();
 
   // shake to change pattern
   if (signalShake.fallingEdge()) {
@@ -267,42 +253,39 @@ void loop() {
   if (signalGet.fallingEdge()) {
     Serial.println("Pour cmd detected, should GET file");
 
-    if (countFile == MAX_SOUND-1) {
+    if (countFile == MAX_SOUND) {
       Serial.println("Can't get more file, exceeds MAX_SOUND");
     } else {
-      // gradually decrease volume
-      sgtl5000_1.volume(0.6);
-      delay(500);
-      sgtl5000_1.volume(0.3);
-      delay(500);
-      sgtl5000_1.volume(0.0);
-      if (mode == RECORD) stopRecording();
-      if (mode == PLAY) stopPlaying();
+      // decrease volume a bit
+      sgtl5000_1.volume(0.5);
 
       countFile++;
       getFTP();  // get file and save it as the next countFile
 
-      // wait to close and open again
-      while(!signalClose.fallingEdge());
-      Serial.println("Bottle is closed");
-      
-      while(!signalOpen.fallingEdge());
-      Serial.println("Bottle is opened");
+      // increment count
 
-      // play again
+      // bring back volume
       sgtl5000_1.volume(1.0);
-      startPlaying();
     }
 
-    // TODO: should play with the new sound included
+
+    // should play with the new sound included
   }
+
+    // ready to record
+  if (mode == STOP && recordReady && !isClosed) detectSound();
 }
 
 void startRecording() {
   Serial.println("startRecording");
   Serial.print("File number: "); Serial.println(countFile, DEC);
+  
+  String tmp = "RECORD";
+  tmp.concat(countFile);
+  tmp.concat(".RAW");
+  char fileName[tmp.length()+1];
+  tmp.toCharArray(fileName, sizeof(fileName));
 
-  char fileName[] = "RECORD0.RAW";
   Serial.print("File name: "); Serial.println(fileName);
 
   if (SD.exists(fileName)) {
@@ -315,8 +298,11 @@ void startRecording() {
     mode = RECORD;
   }
 
-// can only hold 1 sound from itself
-  countFile = 1;
+  if (countFile == MAX_SOUND - 1) {
+    countFile = 0;
+  } else {
+    countFile++;
+  }
   
   startRecordTime = millis();
 }
@@ -350,15 +336,24 @@ void stopRecording() {
     frec.close();
   }
   mode = STOP;
+  recordReady = true;
+  delay(2000);
 }
 
 
 void startPlaying() {
   Serial.print("Count beat: "); Serial.println(countBeat, DEC);
-
+//  if (pattern == 1) {
+//    playSdWav1.play("KRNE1.wav");
+//    playSdWav3.play("KRNE6.wav");
+//    playSdWav4.play("KRNE8.wav");
+//  } else if (pattern == 2) {
+//    playSdWav1.play("KRNE1.wav");
+//    playSdWav3.play("KRNE6.wav");
+//  }
   if (pattern == 1) {
     playRaw1.play("RECORD0.RAW");
-//    playSdWav1.play("KRNE6.wav");
+    playSdWav1.play("KRNE6.wav");
   } else if (pattern == 2) {
     playRaw1.play("RECORD0.RAW");
     playRaw3.play("RECORD2.RAW");
@@ -368,6 +363,10 @@ void startPlaying() {
 
 void continuePlaying() {
   beatElapsed = millis() - beatStart;
+//  if (!playRaw1.isPlaying()) {
+//    playRaw1.stop();
+//    mode = 0;
+//  }
 
   if (beatElapsed > BPM) {
     countBeat++;
@@ -406,7 +405,7 @@ void stopPlaying() {
     playRaw1.stop();
     playRaw2.stop();
     playRaw3.stop();
-//    playSdWav1.stop();
+    playSdWav1.stop();
   }
   mode = STOP;
 }
@@ -426,10 +425,10 @@ void beat0() {
       delay(30);
     }
 
-//    if (countBeat == 1) {
-//      playSdWav1.play("KRNE6.wav");
-//      delay(30);
-//    }
+    if (countBeat == 1) {
+      playSdWav1.play("KRNE6.wav");
+      delay(30);
+    }
 }
 
 void beat3() {
@@ -449,7 +448,58 @@ void beat3() {
   }
 }
 
+void beat1() {
+    if (countBeat == 1 || countBeat == 7 || countBeat == 13 || countBeat == 17 || countBeat == 23) {
+      playSdWav1.play("KRNE1.wav");
+      delay(10);
+    }
+
+    if (countBeat == 8 || countBeat == 24) {
+      playSdWav1.play("KRNE1.wav");
+      delay(10);
+    }
+    
+    if (countBeat == 9 || countBeat == 25) {
+      playSdWav2.play("KRNE2.wav");
+      delay(10);
+    }
+
+    if (countBeat == 1) {
+      playSdWav3.play("KRNE6.wav");
+      delay(10);
+    }
+
+    if (countBeat == 1 || countBeat == 4) {
+      playSdWav4.play("KRNE8.wav");
+      delay(10);
+    }
+}
+
+void beat2() {
+  if (countBeat == 1 || countBeat == 4 || countBeat == 7 || countBeat == 19 || countBeat == 21 || countBeat == 32) {
+    playSdWav1.play("KRNE1.wav");
+    delay(10);
+  }
+
+  if (countBeat == 9 || countBeat == 25) {
+    playSdWav2.play("KRNE2.wav");
+    delay(10);
+  }
+
+  if (countBeat == 1) {
+     playSdWav3.play("KRNE6.wav");
+     delay(10);
+   }
+
+//  if (countBeat == 1) {
+//    playSdWav4.play("KRNE8.wav");
+//    delay(10);
+//  }
+}
+
 void detectSound() {
+  if (!recordReady) return;
+  
    unsigned long startMillis= millis();  // Start of sample window
    unsigned int peakToPeak = 0;   // peak-to-peak level
  
@@ -474,13 +524,12 @@ void detectSound() {
    }
    peakToPeak = signalMax - signalMin;  // max - min = peak-peak amplitude
    double volts = (peakToPeak * 3.3) / 1024;  // convert to volts
-//   double volts = (peakToPeak * 5) / 1024;  // convert to volts
 
   // start recording when sound reach threshold
-//  Serial.println(volts);
   if (volts > SOUND_THR) {
+    Serial.println(volts);
+    recordReady = false;
     startRecording();
-    delay(500);
   }
 }
 
@@ -524,8 +573,7 @@ void putFTP() {
 }
 
 void getFTP() {
-  byte dataBuf[512];
-  char connectBuf[40];
+  char dataBuf[512];
   
   Serial.print("Creating new file on SD Card: RECORD"); Serial.print(countFile); Serial.println(".RAW");
   
@@ -551,12 +599,10 @@ void getFTP() {
 
   // waiting for "FTP connecting" ack from server
   while(!Serial1.available()) {};
-  while(Serial1.available() > 0) {
-    Serial1.readBytes(connectBuf, 40);
-    for(int i = 0; i < 40; i++) {
-      Serial.print(connectBuf[i]);
-    }
-    break;
+  for (int i = 0; i < 32; i++) {
+      char data = Serial1.read();  // get rid of "FTP connecting to 10.148.11.32"
+      Serial.print(data);
+      while(!Serial1.available()) {};
   }
 
   while(!Serial1.available()) {};
