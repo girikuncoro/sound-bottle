@@ -242,6 +242,8 @@ void loop() {
         waitToOpen = true;
         Serial.println("Bottle is empty, next open will be record");
       }
+////      delay(2000);
+//      recordReady = true;
       
       // TODO: something with Photon, tell the other bottle that sound is ready on FTP
     }
@@ -280,12 +282,13 @@ void startRecording() {
   Serial.println("startRecording");
   Serial.print("File number: "); Serial.println(countFile, DEC);
   
-  String tmp = "RECORD";
-  tmp.concat(countFile);
-  tmp.concat(".RAW");
-  char fileName[tmp.length()+1];
-  tmp.toCharArray(fileName, sizeof(fileName));
+//  String tmp = "RECORD";
+//  tmp.concat(countFile);
+//  tmp.concat(".RAW");
+//  char fileName[tmp.length()+1];
+//  tmp.toCharArray(fileName, sizeof(fileName));
 
+  char fileName[] = "RECORD0.RAW";
   Serial.print("File name: "); Serial.println(fileName);
 
   if (SD.exists(fileName)) {
@@ -298,11 +301,12 @@ void startRecording() {
     mode = RECORD;
   }
 
-  if (countFile == MAX_SOUND - 1) {
-    countFile = 0;
-  } else {
-    countFile++;
-  }
+//  if (countFile == MAX_SOUND - 1) {
+//    countFile = 0;
+//  } else {
+//    countFile++;
+//  }
+  countFile = 1;
   
   startRecordTime = millis();
 }
@@ -535,6 +539,14 @@ void detectSound() {
 
 void putFTP() {
   byte outBuf[512];
+
+  // clear cmd error
+  Serial1.println("something");
+  while(!Serial1.available()) {};
+  while(Serial1.available() > 0) {
+    char data = Serial1.read();
+    Serial.print(data);
+  }
   
   Serial.println("Putting RECORD0.RAW to FTP...");
   Serial1.println("ftp put bottle.raw");  // file name is bottle.raw
@@ -546,6 +558,7 @@ void putFTP() {
     Serial.print(data);
   }
 
+  Serial.println("");
   Serial.println("Uploading RECORD0.RAW...");
   fpour = SD.open("RECORD0.RAW", FILE_READ);
   if (!fpour) {
